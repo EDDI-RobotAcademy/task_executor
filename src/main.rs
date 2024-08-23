@@ -2,8 +2,17 @@ use pyo3::prelude::*;
 use pyo3::types::{PyModule, PyAny, PyList, PyTuple};
 use std::path::{Path, PathBuf};
 use std::{env, fs};
-
+use lazy_static::lazy_static;
 use serde_json::Value;
+use std::sync::{Arc, Mutex};
+use shared_memory::{Shmem, ShmemConf};
+use tokio::io::AsyncWriteExt;
+
+unsafe fn write_to_shared_memory(message: &str) {
+    let mut shmem = ShmemConf::new().size(4096).os_id("rust_shared_memory").create().expect("Failed to create shared memory");
+    let mem_slice = shmem.as_slice_mut();
+    mem_slice[..message.len()].copy_from_slice(message.as_bytes());
+}
 
 fn parse_json_to_string_args(py: Python, json_str: &str) -> Vec<PyObject> {
     let parsed_json: Value = serde_json::from_str(json_str).expect("Failed to parse JSON");
@@ -187,6 +196,9 @@ async fn main() -> PyResult<()> {
             println!("Result from Python: {}", message);
             Ok(message)
         })?;
+
+        // 공유 메모리에 메시지 작성
+        unsafe { write_to_shared_memory(&message); }
 
         println!("whatWeHaveToGetData:{}", message);
 
