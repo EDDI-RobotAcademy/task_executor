@@ -7,12 +7,51 @@ use serde_json::Value;
 use std::sync::{Arc, Mutex};
 use shared_memory::{Shmem, ShmemConf};
 use tokio::io::AsyncWriteExt;
+use shared_memory::ShmemError;
 
-unsafe fn write_to_shared_memory(message: &str) {
-    let mut shmem = ShmemConf::new().size(4096).os_id("rust_shared_memory").create().expect("Failed to create shared memory");
-    let mem_slice = shmem.as_slice_mut();
-    mem_slice[..message.len()].copy_from_slice(message.as_bytes());
+fn write_to_shared_memory(shmem: &mut Shmem, message: &str) {
+    unsafe {
+        let mem_slice = shmem.as_slice_mut();
+        // Ensure that the message fits within the shared memory segment
+        if message.len() <= mem_slice.len() {
+            mem_slice[..message.len()].copy_from_slice(message.as_bytes());
+        } else {
+            eprintln!("Message is too large to fit in the shared memory segment.");
+        }
+    }
 }
+
+// fn write_to_shared_memory(shmem: &mut Shmem, message: &str) {
+// //     let mem_slice = unsafe {
+// //         shmem.as_slice_mut();
+// //     }
+// // //     mem_slice[..message.len()].copy_from_slice(message.as_bytes());
+// //     if message.len() <= mem_slice.len() {
+// //         mem_slice[..message.len()].copy_from_slice(message.as_bytes());
+// //     } else {
+// //         eprintln!("Message is too large to fit in the shared memory segment.");
+// //     }
+//     match shmem.as_slice_mut() {
+//         Ok(mem_slice) => {
+//             // Ensure that the message fits within the shared memory segment
+//             if message.len() <= mem_slice.len() {
+//                 mem_slice[..message.len()].copy_from_slice(message.as_bytes());
+//             } else {
+//                 eprintln!("Message is too large to fit in the shared memory segment.");
+//             }
+//         }
+//         Err(e) => {
+//             eprintln!("Failed to access shared memory as mutable slice: {}", e);
+//         }
+//     }
+// }
+
+// unsafe fn write_to_shared_memory(message: &str) {
+//     let mut shmem = ShmemConf::new().size(4096).os_id("rust_shared_memory").create().expect("Failed to create shared memory");
+//     println!("Shared memory created with ID: {:?}", shmem.as_ptr());
+//     let mem_slice = shmem.as_slice_mut();
+//     mem_slice[..message.len()].copy_from_slice(message.as_bytes());
+// }
 
 fn parse_json_to_string_args(py: Python, json_str: &str) -> Vec<PyObject> {
     let parsed_json: Value = serde_json::from_str(json_str).expect("Failed to parse JSON");
@@ -61,6 +100,16 @@ fn add_subdirectories_to_pythonpath(root_path: &Path) -> String {
 // TODO: 일단 구동만 되게 만들 것이므로 구조는 개 주고 만든다.
 #[tokio::main]
 async fn main() -> PyResult<()> {
+    let mut shmem = ShmemConf::new()
+        .size(4096)
+        .os_id("rust_shared_memory")
+        .create()
+        .or_else(|err| match err {
+            ShmemError::MappingIdExists => ShmemConf::new().os_id("rust_shared_memory").open(),
+            _ => Err(err),
+        })
+        .expect("Failed to create or open shared memory");
+
     match env::current_dir() {
         Ok(path) => println!("현재 작업 디렉토리: {}", path.display()),
         Err(e) => println!("현재 작업 디렉토리 획득 실패: {}", e),
@@ -198,7 +247,8 @@ async fn main() -> PyResult<()> {
         })?;
 
         // 공유 메모리에 메시지 작성
-        unsafe { write_to_shared_memory(&message); }
+//         unsafe { write_to_shared_memory(&message); }
+        write_to_shared_memory(&mut shmem, &message);
 
         println!("whatWeHaveToGetData:{}", message);
 
