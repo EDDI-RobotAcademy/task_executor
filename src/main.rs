@@ -8,6 +8,7 @@ use std::sync::{Arc, Mutex};
 use shared_memory::{Shmem, ShmemConf};
 use tokio::io::AsyncWriteExt;
 use shared_memory::ShmemError;
+use tokio::signal::unix::{signal, SignalKind};
 
 fn write_to_shared_memory(shmem: &mut Shmem, message: &str) {
     unsafe {
@@ -251,6 +252,9 @@ async fn main() -> PyResult<()> {
         write_to_shared_memory(&mut shmem, &message);
 
         println!("whatWeHaveToGetData:{}", message);
+
+        let mut terminateSignal = signal(SignalKind::terminate()).expect("Signal 셋업에 실패했습니다!");
+        terminateSignal.recv().await;
 
         std::process::exit(0)
     } else {
