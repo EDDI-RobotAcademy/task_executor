@@ -122,6 +122,8 @@ async fn main() -> PyResult<()> {
     //     .expect("Failed to create or open shared memory");
 
     let mut shmem = ShmemConf::new()
+        // mac은 요걸로 요청해야함
+        // .os_id("/rust_shared_memory")
         .os_id("rust_shared_memory")
         .open()
         .expect("Failed to open shared memory");
