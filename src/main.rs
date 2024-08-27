@@ -101,15 +101,20 @@ fn add_subdirectories_to_pythonpath(root_path: &Path) -> String {
 // TODO: 일단 구동만 되게 만들 것이므로 구조는 개 주고 만든다.
 #[tokio::main]
 async fn main() -> PyResult<()> {
+    // let mut shmem = ShmemConf::new()
+    //     .size(4096)
+    //     .os_id("rust_shared_memory")
+    //     .create()
+    //     .or_else(|err| match err {
+    //         ShmemError::MappingIdExists => ShmemConf::new().os_id("rust_shared_memory").open(),
+    //         _ => Err(err),
+    //     })
+    //     .expect("Failed to create or open shared memory");
+
     let mut shmem = ShmemConf::new()
-        .size(4096)
         .os_id("rust_shared_memory")
-        .create()
-        .or_else(|err| match err {
-            ShmemError::MappingIdExists => ShmemConf::new().os_id("rust_shared_memory").open(),
-            _ => Err(err),
-        })
-        .expect("Failed to create or open shared memory");
+        .open()
+        .expect("Failed to open shared memory");
 
     match env::current_dir() {
         Ok(path) => println!("현재 작업 디렉토리: {}", path.display()),
@@ -252,9 +257,6 @@ async fn main() -> PyResult<()> {
         write_to_shared_memory(&mut shmem, &message);
 
         println!("whatWeHaveToGetData:{}", message);
-
-        let mut terminateSignal = signal(SignalKind::terminate()).expect("Signal 셋업에 실패했습니다!");
-        terminateSignal.recv().await;
 
         std::process::exit(0)
     } else {
