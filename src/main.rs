@@ -10,12 +10,22 @@ use tokio::io::AsyncWriteExt;
 use shared_memory::ShmemError;
 use tokio::signal::unix::{signal, SignalKind};
 
+// fn write_to_shared_memory(shmem: &mut Shmem, message: &str) {
+//     let memSlice = unsafe {
+//         shmem.as_slice()
+//     };
+//
+//     let nullTerminatorPosition = memSlice.iter().position(|&x| x == 0).unwrap_or(memSlice.len());
+//     String::from_utf8_lossy(&memSlice[..nullTerminatorPosition]).to_string()
+// }
+
 fn write_to_shared_memory(shmem: &mut Shmem, message: &str) {
     unsafe {
         let mem_slice = shmem.as_slice_mut();
         // Ensure that the message fits within the shared memory segment
         if message.len() <= mem_slice.len() {
             mem_slice[..message.len()].copy_from_slice(message.as_bytes());
+            println!("shared memory에 작성한 데이터: {:?}", &mem_slice[..message.len()]);
         } else {
             eprintln!("Message is too large to fit in the shared memory segment.");
         }
@@ -195,7 +205,7 @@ async fn main() -> PyResult<()> {
     Python::with_gil(|py| {
         let path = py.import("os")?.getattr("path")?;
         // TODO: 홀로 실행하냐 연동해서 실행하냐에 따라 자동으로 분류되게 만들어야함 (일단 그냥 감)
-        // let abspath = path.call_method1("abspath", ("..",))?;
+        //         let abspath = path.call_method1("abspath", ("..",))?;
         let abspath = path.call_method1("abspath", ("",))?;
 
         let sys = PyModule::import(py, "sys")?;
@@ -253,7 +263,7 @@ async fn main() -> PyResult<()> {
         })?;
 
         // 공유 메모리에 메시지 작성
-//         unsafe { write_to_shared_memory(&message); }
+        //         unsafe { write_to_shared_memory(&message); }
         write_to_shared_memory(&mut shmem, &message);
 
         println!("whatWeHaveToGetData:{}", message);
