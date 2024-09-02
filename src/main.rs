@@ -2,13 +2,17 @@ use pyo3::prelude::*;
 use pyo3::types::{PyModule, PyAny, PyList, PyTuple};
 use std::path::{Path, PathBuf};
 use std::{env, fs};
+use std::fs::File;
 use lazy_static::lazy_static;
 use serde_json::Value;
 use std::sync::{Arc, Mutex};
 use shared_memory::{Shmem, ShmemConf};
-use tokio::io::AsyncWriteExt;
+// use tokio::io::AsyncWriteExt;
 use shared_memory::ShmemError;
 use tokio::signal::unix::{signal, SignalKind};
+use std::io::{Write, Result};
+
+const FILE_PATH: &str = "shared_data.txt";
 
 // fn write_to_shared_memory(shmem: &mut Shmem, message: &str) {
 //     let memSlice = unsafe {
@@ -121,12 +125,13 @@ async fn main() -> PyResult<()> {
     //     })
     //     .expect("Failed to create or open shared memory");
 
-    let mut shmem = ShmemConf::new()
-        // mac은 요걸로 요청해야함
-        // .os_id("/rust_shared_memory")
-        .os_id("rust_shared_memory")
-        .open()
-        .expect("Failed to open shared memory");
+    // TODO: 향후 Chunk 단위 비동기 Shared Memory 송수신 처리가 완료 되면 활성화
+    // let mut shmem = ShmemConf::new()
+    //     // mac은 요걸로 요청해야함
+    //     // .os_id("/rust_shared_memory")
+    //     .os_id("rust_shared_memory")
+    //     .open()
+    //     .expect("Failed to open shared memory");
 
     match env::current_dir() {
         Ok(path) => println!("현재 작업 디렉토리: {}", path.display()),
@@ -266,7 +271,12 @@ async fn main() -> PyResult<()> {
 
         // 공유 메모리에 메시지 작성
         //         unsafe { write_to_shared_memory(&message); }
-        write_to_shared_memory(&mut shmem, &message);
+
+        // TODO: 향후 Chunk 단위 비동기 Shared Memory 송수신 처리가 완료 되면 활성화
+        // write_to_shared_memory(&mut shmem, &message);
+
+        let mut file = File::create(FILE_PATH)?;
+        file.write_all(message.as_bytes());
 
         println!("whatWeHaveToGetData:{}", message);
 
