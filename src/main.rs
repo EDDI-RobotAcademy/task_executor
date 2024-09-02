@@ -11,6 +11,7 @@ use shared_memory::{Shmem, ShmemConf};
 use shared_memory::ShmemError;
 use tokio::signal::unix::{signal, SignalKind};
 use std::io::{Write, Result};
+use std::sync::atomic::{fence, Ordering};
 
 const FILE_PATH: &str = "shared_data.txt";
 
@@ -115,6 +116,8 @@ fn add_subdirectories_to_pythonpath(root_path: &Path) -> String {
 // TODO: 일단 구동만 되게 만들 것이므로 구조는 개 주고 만든다.
 #[tokio::main]
 async fn main() -> PyResult<()> {
+    // asm volatile("": "": "": "memory") 메모리 장벽 시작
+    fence(Ordering::SeqCst);
     // let mut shmem = ShmemConf::new()
     //     .size(4096)
     //     .os_id("rust_shared_memory")
@@ -207,6 +210,9 @@ async fn main() -> PyResult<()> {
     for i in 0..param_count {
         parameters.push(env::args().nth(5 + i).unwrap());
     }
+
+    // asm volatile("": "": "": "memory") 메모리 장벽 끝
+    fence(Ordering::SeqCst);
 
     // sys.path 업데이트
     Python::with_gil(|py| {
