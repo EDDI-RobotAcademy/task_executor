@@ -263,8 +263,9 @@ async fn main() -> PyResult<()> {
     // 코루틴을 Future로 변환하고 실행하여 Python 객체를 반환
     let result: PyResult<Py<PyAny>> = Python::with_gil(|py| {
         let asyncio = py.import("asyncio")?;
-        let result = asyncio.call_method1("run", (coroutine,))?;
-        Ok(result.into())
+        let r#loop = asyncio.call_method0("get_event_loop")?;
+        let run_coroutine = r#loop.call_method1("run_until_complete", (coroutine,))?;
+        Ok(run_coroutine.into())
     });
 
     // 결과를 처리하고 출력
@@ -275,20 +276,15 @@ async fn main() -> PyResult<()> {
             Ok(message)
         })?;
 
-        // 공유 메모리에 메시지 작성
-        //         unsafe { write_to_shared_memory(&message); }
-
-        // TODO: 향후 Chunk 단위 비동기 Shared Memory 송수신 처리가 완료 되면 활성화
-        // write_to_shared_memory(&mut shmem, &message);
-
+        // 공유 메모리에 메시지 작성 또는 파일에 기록
         let mut file = File::create(FILE_PATH)?;
-        file.write_all(message.as_bytes());
+        file.write_all(message.as_bytes())?;
 
         println!("whatWeHaveToGetData:{}", message);
 
-        std::process::exit(0)
+        std::process::exit(0);
     } else {
         eprintln!("Failed to execute Python coroutine.");
-        std::process::exit(1)
+        std::process::exit(1);
     }
 }
